@@ -19,8 +19,8 @@ jobs:
           python-version: '3.9'
 
       - name: Install Deps
-        run: pip install requests pycryptodome pyTelegramBotAPI urllib3
-
+        run: pip install pycryptodome pyTelegramBotAPI requests psutil urllib3
+        
       - name: Start Bot Engine
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
