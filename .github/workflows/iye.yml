@@ -1,0 +1,37 @@
+name: RAPZ-AW-GENERATOR
+
+on:
+  workflow_dispatch: # Bisa jalanin manual dari tab Actions
+  schedule:
+    - cron: '0 */6 * * *' # Jalan otomatis tiap 6 jam
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Dependencies
+        run: pip install requests pycryptodome urllib3
+
+      - name: Run Rapz AW Engine
+        run: |
+          # Timeout 5.5 jam (19800s) biar workflow gak mati paksa
+          timeout 19800s python bot.py || echo "Execution Stopped/Finished"
+
+      - name: Commit and Push Results
+        run: |
+          git config --local user.email "bot@github.com"
+          git config --local user.name "AW-Deployer"
+          git add .
+          git commit -m "Sync Accounts & Status: $(date)" || echo "No changes to commit"
+          git push
