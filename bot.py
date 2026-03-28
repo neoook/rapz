@@ -25,6 +25,12 @@ import importlib
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+# gtw
+http_session = requests.Session()
+adapter = requests.adapters.HTTPAdapter(pool_connections=100, pool_maxsize=100)
+http_session.mount('https://', adapter)
+http_session.mount('http://', adapter)
+
 # Initialize
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -479,14 +485,22 @@ def create_acc(region, account_name, password_prefix, is_ghost=False):
             "Connection": "Keep-Alive"
         }
         
-        response = requests.post(url, headers=headers, data=data, timeout=30, verify=False)
+        # Pake session biar gak gampang stuck pas ratusan akun
+        response = http_session.post(url, headers=headers, data=data, timeout=(10, 30), verify=False)
         response.raise_for_status()
         
-        if 'uid' in response.json():
-            uid = response.json()['uid']
+        res_json = response.json()
+        if 'uid' in res_json:
+            uid = res_json['uid']
             print(f"✅ Guest account created: {uid}")
             smart_delay()
             return token(uid, password, region, account_name, password_prefix, is_ghost)
+        
+        return None
+
+    except requests.exceptions.RequestException as e:
+        print(f"⚠️ Network error (Garena): {e}")
+        time.sleep(2) # Delay dikit kalo koneksi error
         return None
     except Exception as e:
         print(f"⚠️ Create account failed: {e}")
