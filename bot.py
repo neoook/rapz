@@ -1017,7 +1017,7 @@ def generate_accounts_background(user_id, region, count, name_prefix, password_p
         
         # --- MULTI-THREADING SETUP (5 WORKERS) ---
         # Menjalankan 5 proses generate sekaligus dalam satu waktu
-        max_workers = 5
+        max_workers = 55
         
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Kirim semua tugas ke antrean thread pool
