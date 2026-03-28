@@ -1,0 +1,24 @@
+name: vps
+
+# Kontrol kapan workflow jalan
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  # Biar bisa klik "Run Workflow" manual di tab Actions
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout repo
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Eksekusi VPS via SSHX
+      - name: run vps
+        run: |
+          curl -sSf https://sshx.io/get | sh -s run
