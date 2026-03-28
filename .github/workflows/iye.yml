@@ -1,15 +1,13 @@
-name: RAPZ-AW-GENERATOR
+name: RAPZ-TELE-GEN
 
 on:
-  workflow_dispatch: # Bisa jalanin manual dari tab Actions
-  schedule:
-    - cron: '0 */6 * * *' # Jalan otomatis tiap 6 jam
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  build:
+  run-bot:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -20,18 +18,20 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: Install Dependencies
-        run: pip install requests pycryptodome urllib3
+      - name: Install Deps
+        run: pip install requests pycryptodome pyTelegramBotAPI urllib3
 
-      - name: Run Rapz AW Engine
+      - name: Start Bot Engine
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
         run: |
-          # Timeout 5.5 jam (19800s) biar workflow gak mati paksa
-          timeout 19800s python bot.py || echo "Execution Stopped/Finished"
+          # Jalanin bot selama 5.5 jam
+          timeout 19800s python bot.py || echo "Session End"
 
-      - name: Commit and Push Results
+      - name: Auto Sync to Repo
         run: |
           git config --local user.email "bot@github.com"
           git config --local user.name "AW-Deployer"
           git add .
-          git commit -m "Sync Accounts & Status: $(date)" || echo "No changes to commit"
+          git commit -m "Auto Sync Cloud Data" || echo "No changes"
           git push
