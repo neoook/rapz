@@ -467,45 +467,102 @@ def save_normal_account(account_data, region, is_ghost=False):
 def smart_delay():
     time.sleep(random.uniform(1, 2))
 
+def get_random_ua():
+    uas = [
+        # RED MAGIC SERIES (The Real Gaming Phone)
+        "Dalvik/2.1.0 (Linux; U; Android 13; Red Magic 8 Pro Build/RKQ1.211103.002)",
+        "Dalvik/2.1.0 (Linux; U; Android 14; Red Magic 8S Pro Build/UKQ1.230917.001)",
+        "Dalvik/2.1.0 (Linux; U; Android 14; Red Magic 9 Pro Build/UKQ1.231003.002)",
+        "Dalvik/2.1.0 (Linux; U; Android 15; Red Magic 9S Pro+ Build/VKA1.241105.001)",
+        "Dalvik/2.1.0 (Linux; U; Android 15; Red Magic 10 Pro Build/VKA1.241215.001)",
+        "Dalvik/2.1.0 (Linux; U; Android 16; Red Magic 11 Pro Build/WKA1.250210.001)", # Future model
+        
+        # SAMSUNG S-SERIES (Ultra Flagship)
+        "Dalvik/2.1.0 (Linux; U; Android 12; SM-G998B Build/SP1A.210812.016)", # S21 Ultra
+        "Dalvik/2.1.0 (Linux; U; Android 13; SM-S908B Build/TP1A.220624.014)", # S22 Ultra
+        "Dalvik/2.1.0 (Linux; U; Android 14; SM-S918B Build/UP1A.231005.007)", # S23 Ultra
+        "Dalvik/2.1.0 (Linux; U; Android 14; SM-S928B Build/UKQ1.230804.001)", # S24 Ultra
+        "Dalvik/2.1.0 (Linux; U; Android 15; SM-S938B Build/VKA1.241120.001)", # S25 Ultra
+        
+        # POCO & REDMI (The Spammer Favorites)
+        "Dalvik/2.1.0 (Linux; U; Android 14; Redmi 14C Build/UKQ1.231003.002)",
+        "Dalvik/2.1.0 (Linux; U; Android 15; Redmi 15C Build/VKA1.241105.001)",
+        "Dalvik/2.1.0 (Linux; U; Android 14; POCO F6 Pro Build/UKQ1.230804.001)",
+        "Dalvik/2.1.0 (Linux; U; Android 15; POCO F7 Build/VKA1.241210.001)",
+        
+        # ASUS ROG
+        "Dalvik/2.1.0 (Linux; U; Android 14; ASUS_AI2401 Build/UKQ1.230929.001)", # ROG 8
+        "Dalvik/2.1.0 (Linux; U; Android 15; ASUS_AI2501 Build/VKA1.241118.001)", # ROG 9
+        
+        # PIXEL
+        "Dalvik/2.1.0 (Linux; U; Android 15; Pixel 9 Pro Build/VKA1.241105.001)"
+    ]
+    return random.choice(uas)
+
 def create_acc(region, account_name, password_prefix, is_ghost=False):
+    """
+    Fungsi untuk membuat guest account Garena dengan sinkronisasi User-Agent
+    dan optimasi session untuk GitHub Actions.
+    """
     if EXIT_FLAG:
         return None
+
     try:
+        # STEP 1: PILIH HP ANDROID (User-Agent) UNTUK SESI AKUN INI
+        # Kita simpan di variabel agar bisa dioper ke fungsi token & register
+        current_ua = get_random_ua()
+        
         password = generate_custom_password(password_prefix)
         data = f"password={password}&client_type=2&source=2&app_id=100067"
         message = data.encode('utf-8')
+        
+        # HMAC signature menggunakan key garena (pastikan variabel 'key' sudah ada)
         signature = hmac.new(key, message, hashlib.sha256).hexdigest()
         
         url = "https://100067.connect.garena.com/oauth/guest/register"
         headers = {
-            "User-Agent": "GarenaMSDK/4.0.19P8(ASUS_Z01QD ;Android 12;en;US;)",
+            "User-Agent": current_ua,  # Pake HP Flagship pilihan tadi
             "Authorization": "Signature " + signature,
             "Content-Type": "application/x-www-form-urlencoded",
             "Accept-Encoding": "gzip",
             "Connection": "Keep-Alive"
         }
         
-        # Pake session biar gak gampang stuck pas ratusan akun
+        # STEP 2: REQUEST KE GARENA MENGGUNAKAN SESSION
+        # Timeout 10 detik connect, 30 detik read biar nggak nge-stuck
         response = http_session.post(url, headers=headers, data=data, timeout=(10, 30), verify=False)
         response.raise_for_status()
         
         res_json = response.json()
+        
         if 'uid' in res_json:
             uid = res_json['uid']
-            print(f"✅ Guest account created: {uid}")
+            # Log singkat biar rapi di console GitHub Actions
+            print(f"✅ [SUCCESS] Guest Created: {uid} | Device: {current_ua.split(';')[2][:20]}")
+            
+            # Kasih jeda dikit biar nggak terlalu brutal spamnya
             smart_delay()
-            return token(uid, password, region, account_name, password_prefix, is_ghost)
+            
+            # STEP 3: LANJUT KE TOKEN (OPER 'current_ua' BIAR HP-NYA TETAP SAMA)
+            # Pastikan fungsi token() lu udah diedit untuk menerima parameter terakhir ini
+            return token(uid, password, region, account_name, password_prefix, is_ghost, current_ua)
         
+        elif res_json.get('error') == 'limit':
+            print("⚠️ Garena Limit detected! IP GitHub mungkin cooldown.")
+            return None
+            
         return None
 
-    except requests.exceptions.RequestException as e:
-        print(f"⚠️ Network error (Garena): {e}")
-        time.sleep(2) # Delay dikit kalo koneksi error
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 400:
+            print(f"❌ [400 Bad Request] Garena detect spam. Device: {current_ua.split(';')[2][:15]}")
+        else:
+            print(f"⚠️ HTTP Error: {e}")
         return None
     except Exception as e:
-        print(f"⚠️ Create account failed: {e}")
-        smart_delay()
+        print(f"⚠️ Create account error: {str(e)}")
         return None
+
 
 def token(uid, password, region, account_name, password_prefix, is_ghost=False):
     if EXIT_FLAG:
@@ -566,25 +623,21 @@ def Major_Regsiter(access_token, open_id, field, uid, password, region, account_
     if EXIT_FLAG:
         return None
     try:
-        if is_ghost:
-            url = "https://loginbp.ggblueshark.com/MajorRegister"
-        else:
-            if region.upper() in ["ME", "TH"]:
-                url = "https://loginbp.common.ggbluefox.com/MajorRegister"
-            else:
-                url = "https://loginbp.ggblueshark.com/MajorRegister"
-            
+        # Tentukan HOST dan URL
+        host = "loginbp.common.ggbluefox.com" if not is_ghost and region.upper() in ["ME", "TH"] else "loginbp.ggblueshark.com"
+        url = f"https://{host}/MajorRegister"
+        
         name = generate_random_name(account_name)
+        current_ua = get_random_ua() # Ambil UA Android Random
         
         headers = {
             "Accept-Encoding": "gzip",
             "Authorization": "Bearer",   
             "Connection": "Keep-Alive",
             "Content-Type": "application/x-www-form-urlencoded",
-            "Expect": "100-continue",
-            "Host": "loginbp.ggblueshark.com" if is_ghost or region.upper() not in ["ME", "TH"] else "loginbp.common.ggbluefox.com",
+            "Host": host,
             "ReleaseVersion": "OB52",
-            "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 9; ASUS_I005DA Build/PI)",
+            "User-Agent": current_ua,
             "X-GA": "v1 1",
             "X-Unity-Version": "2018.4."
         }
@@ -607,10 +660,11 @@ def Major_Regsiter(access_token, open_id, field, uid, password, region, account_
         payload_bytes = CrEaTe_ProTo(payload)
         encrypted_payload = E_AEs(payload_bytes.hex())
         
-        response = requests.post(url, headers=headers, data=encrypted_payload, verify=False, timeout=30)
+        # PAKE SESSION + TIMEOUT LEBIH PENDEK BIAR GAK STUCK LAMA
+        response = http_session.post(url, headers=headers, data=encrypted_payload, verify=False, timeout=(10, 25))
         
         if response.status_code == 200:
-            print(f"✅ MajorRegister successful: {name}")
+            print(f"✅ MajorRegister Success [{current_ua[:25]}...]: {name}")
             
             login_result = perform_major_login(uid, password, access_token, open_id, region, is_ghost)
             account_id = login_result.get("account_id", "N/A")
@@ -620,10 +674,8 @@ def Major_Regsiter(access_token, open_id, field, uid, password, region, account_
                 region_bound = force_region_binding(region, jwt_token)
                 if region_bound:
                     print(f"✅ Region {region} bound successfully!")
-                else:
-                    print(f"⚠️ Region binding failed for {region}")
             
-            account_data = {
+            return {
                 "uid": uid, 
                 "password": password, 
                 "name": name, 
@@ -633,14 +685,18 @@ def Major_Regsiter(access_token, open_id, field, uid, password, region, account_
                 "jwt_token": jwt_token
             }
             
-            return account_data
-        else:
-            print(f"⚠️ MajorRegister returned status: {response.status_code}")
+        elif response.status_code == 400:
+            print(f"⚠️ Limit 400 (IP GitHub Terdeteksi). Menunggu 10 detik...")
+            time.sleep(10) # Jeda dikit biar gak makin parah limitnya
             return None
+        else:
+            print(f"⚠️ MajorRegister Failed [{response.status_code}]")
+            return None
+
     except Exception as e:
         print(f"⚠️ Major_Regsiter error: {str(e)}")
-        smart_delay()
         return None
+
 
 def perform_major_login(uid, password, access_token, open_id, region, is_ghost=False):
     try:
